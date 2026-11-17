@@ -1,0 +1,42 @@
+name: watch
+
+on:
+  schedule:
+    # JST 6:00〜23:00 の30分おき (UTCで 21〜23時 と 0〜14時)
+    - cron: "*/30 0-14,21-23 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+      - run: playwright install --with-deps chromium
+
+      # 前回結果(state.json)を実行間で引き継ぐ
+      - uses: actions/cache@v4
+        with:
+          path: state.json
+          key: state-${{ github.run_id }}
+          restore-keys: state-
+
+      - run: python kyoshu_watch.py
+        env:
+          START_URL: ${{ secrets.START_URL }}
+          KYOSHU_ID: ${{ secrets.KYOSHU_ID }}
+          KYOSHU_PASSWORD: ${{ secrets.KYOSHU_PASSWORD }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
